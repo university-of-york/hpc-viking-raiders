@@ -1,0 +1,3 @@
+h1. Viking Raiders
+
+p. This repo contains the "longboat":https://bitbucket.org/nl987/longboat raiders for Viking at the UoY.
