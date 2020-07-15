@@ -7,21 +7,19 @@ class SlurmJobStates
   def raid
     start_time = (Time.now - @interval).strftime("%H:%M:%S")
 
-    # Get raw data from sacct,
-    # read jobs into an array,
-    # remove any whitespace from the ends of each string,
-    # drop the header,
-    # and split each line into state and partition
-    raw = `sacct -a -P -o State,Partition -S #{start_time}`.
-      lines.
-      map(&:strip)[1..-1].
-      map{|l|l.split("|")}
+    # Get raw data from sacct and read jobs into an array
+    raw = `sacct -a -P -o State,Partition -S #{start_time}`.lines
+    # remove any whitespace from the ends of each string
+    raw = raw.map(&:strip)
+    # drop the header line
+    raw = raw[1..-1]
+    # split each line into state and partition
+    raw = raw.map{ |l| l.split("|") }
+    # and remove the "by xxxxxx" from CANCELLED jobs
+    raw = raw.map { |state, partition| [state.split[0], partition] }
 
     # Make a tally of each state/partition combo
-    tally = Hash.new{0}
-    raw.each do |job|
-      tally[job] += 1
-    end
+    tally = raw.tally
 
     # Clean up any previously reported metrics
     # to prevent stale labelsets
