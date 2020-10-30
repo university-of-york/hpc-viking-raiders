@@ -20,25 +20,31 @@ class PendingOnQos
 
   def raid
     @partition_thresholds.each do |partition, threshold|
-      start_time = (Time.now - @partition_thresholds[:partition])
-                   .strftime('%Y-%m-:%d')
+      start_time = (Time.now - threshold).strftime('%Y-%m-%d')
 
       squeue_cmd = [
         'squeue',
         '--format="%A,%R,%V"',
         '--noheader',
-        '--parsable2',
         "--partition=#{partition}",
         '--state=PENDING'
       ].join(' ')
+      
+      output = `#{squeue_cmd}`.split('\n') 
+
+      puts output
     end
 
     @collector.report!(
-      name: 'pending_on_qos',
-      value: 255,
-      help: 'Number of jobs pending for QoS reasons',
-      type: 'gauge',
-      labels: { partition: 'nodes' }
+      'pending_on_qos',
+      255,
+      {
+        help: 'Number of jobs pending for QoS reasons',
+        type: 'gauge',
+        labels: {
+          partition: 'nodes'
+        }
+      }
     )
   end
 end
