@@ -24,7 +24,7 @@ class PendingOnQos
     @partition_thresholds.each do |partition, threshold|
       squeue_cmd = [
         'squeue',
-        '--format="%A,%R,%V"',
+        '--format="%R,%V"',
         '--noheader',
         "--partition=#{partition}",
         '--state=PENDING'
@@ -35,7 +35,7 @@ class PendingOnQos
       end
 
       count = data.count do |columns|
-        (Time.now.to_i - DateTime.parse(columns[2]).to_time.to_i) > threshold
+        (Time.now.to_i - DateTime.parse(columns[1]).to_time.to_i) > threshold
       end
 
       @collector.report!(
