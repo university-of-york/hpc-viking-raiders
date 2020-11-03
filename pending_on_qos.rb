@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-# For each Viking partition, report the number of jobs pending due to QoS
-# reasons.
+require 'date'
+
+# For each Viking partition, report the number of jobs pending for a long time
+# due to QoS reasons.
 class PendingOnQos
   def initialize(collector, config)
     @collector = collector
@@ -20,8 +22,6 @@ class PendingOnQos
 
   def raid
     @partition_thresholds.each do |partition, threshold|
-      start_time = (Time.now - threshold).strftime('%Y-%m-%d')
-
       squeue_cmd = [
         'squeue',
         '--format="%A,%R,%V"',
@@ -29,22 +29,24 @@ class PendingOnQos
         "--partition=#{partition}",
         '--state=PENDING'
       ].join(' ')
-      
-      output = `#{squeue_cmd}`.split('\n') 
 
-      puts output
-    end
+      data = `#{squeue_cmd}`.split("\n").grep(/QOS/).map do |row|
+        row.split(',')
+      end
 
-    @collector.report!(
-      'pending_on_qos',
-      255,
-      {
-        help: 'Number of jobs pending for QoS reasons',
+      count = data.count do |columns|
+        (Time.now.to_i - DateTime.parse(columns[2]).to_time.to_i) > threshold
+      end
+
+      @collector.report!(
+        'pending_on_qos',
+        count,
+        help: 'Number of jobs pending beyond a threshold for QoS reasons',
         type: 'gauge',
         labels: {
-          partition: 'nodes'
+          partition: partition.to_s
         }
-      }
-    )
+      )
+    end
   end
 end
