@@ -1,5 +1,12 @@
 Layout/LineLength:
   Max: 80
 
+Metrics/MethodLength:
+  CountAsOne:
+    - 'array'
+    - 'hash'
+    - 'heredoc'
+  Max: 20
+
 AllCops:
   NewCops: enable
