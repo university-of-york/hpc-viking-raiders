@@ -19,8 +19,7 @@ end
 class SlurmQueueTimeCoresRequested
   def initialize(collector, config)
     @collector = collector
-    #@interval = config[:raid_every]
-    @interval = 6000
+    @interval = config[:raid_every]
   end
 
   def raid
