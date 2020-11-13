@@ -32,8 +32,8 @@ class SlurmQueueTimeCoresRequested
       "-X", # allocations
       "-P", # "|" - delimited 
       "--partition=nodes",
-      "--state=CD,DL,F,NF,OOM,PR,R,TO",  # consider all job states that have had resources allocated since the
-      "-o AllocCPUs,Submit,Start",                # last cycle
+      "--state=CD",                 # consider only completed jobs
+      "-o AllocCPUs,Submit,Start",
       "-S #{start_time}", 
       "-E #{end_time}"
     ].join(' ')
@@ -79,15 +79,18 @@ class SlurmQueueTimeCoresRequested
         bin = [mean_qt, median_qt, max_qt]
       end
 
+      @collector.redact!("slurm_queue_time_cores_requested")
+
       # report mean, median, max queue time for each CPU core bin
       qt_by_core.each.with_index do |bin, bin_idx|    # iterate over bins
         bin.each.with_index do |queuetime, stat_idx|  # iterate over mean, median, max
           @collector.report!(
-            "queue_time_cores_requested",
+            "slurm_queue_time_cores_requested",
             queuetime,
             help: "Queue time binned by number of CPU cores requested",
             type: "gauge",
-            labels: {cores_min: bins_cores[bin_idx][0],
+            labels: {njobs: njobs,
+                     cores_min: bins_cores[bin_idx][0],
                      cores_max: bins_cores[bin_idx][1],
                      statistic: qt_stats[stat_idx]}
           )
@@ -95,7 +98,7 @@ class SlurmQueueTimeCoresRequested
       end
 
     else
-      # no jobs
+      @collector.redact!("slurm_queue_time_cores_requested")
     end
   end
 end
