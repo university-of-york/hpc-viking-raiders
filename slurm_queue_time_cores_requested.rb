@@ -16,7 +16,7 @@ class Array
   end
 end
 
-class SlurmQueueTimesCoresRequested
+class SlurmQueueTimeCoresRequested
   def initialize(collector, config)
     @collector = collector
     @interval = config[:raid_every]
@@ -99,11 +99,3 @@ class SlurmQueueTimesCoresRequested
     end
   end
 end
-
-   
-
-
-
-
-
-
