@@ -27,15 +27,15 @@ class SlurmQueueTimeCoresRequested
     end_time = Time.now.strftime("%H:%M:%S")
 
     sacct_cmd = [
-      'sacct',
-      '-a', # all jobs
-      '-X', # allocations
-      '-P', # "|" - delimited 
-      '--partition=nodes',
-      '--state=CD,CF,CG,DL,F,NF,OOM,PR,R,ST,TO',  # consider all job states that have had resources allocated since the
-      '-o AllocCPUs,Submit,Start',                # last cycle
-      '-S #{start_time}', 
-      '-E #{end_time}'
+      "sacct",
+      "-a", # all jobs
+      "-X", # allocations
+      "-P", # "|" - delimited 
+      "--partition=nodes",
+      "--state=CD,CF,CG,DL,F,NF,OOM,PR,R,ST,TO",  # consider all job states that have had resources allocated since the
+      "-o AllocCPUs,Submit,Start",                # last cycle
+      "-S #{start_time}", 
+      "-E #{end_time}"
     ].join(' ')
     
     # get raw data from sacct and read jobs into an array
