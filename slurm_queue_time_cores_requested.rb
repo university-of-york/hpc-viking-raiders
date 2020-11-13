@@ -71,6 +71,7 @@ class SlurmQueueTimesCoresRequested
           .map{ |job| job[1] }                                    # queue time
       end
       
+      qt_stats = ['mean', 'median', 'max']
       qt_by_core = binned_by_core.map do |bin|
         mean_qt = bin.mean
         median_qt = bin.median
@@ -78,13 +79,20 @@ class SlurmQueueTimesCoresRequested
         bin = [mean_qt, median_qt, max_qt]
       end
 
-      qt_by_core.each do |mean, median, max|
-        @collector.report!(
-          "queue_time_cores_requested",
-          
-        )
+      # report mean, median, max queue time for each CPU core bin
+      qt_by_core.each.with_index do |bin, bin_idx|    # iterate over bins
+        bin.each.with_index do |queuetime, stat_idx|  # iterate over mean, median, max
+          @collector.report!(
+            "queue_time_cores_requested",
+            queuetime,
+            help: "Queue time binned by number of CPU cores requested",
+            type: "gauge",
+            labels: {cores_min: bins_cores[bin_idx][0],
+                     cores_max: bins_cores[bin_idx][1],
+                     statistic: qt_stats[stat_idx]}
+          )
+        end
       end
-
 
     else
       # no jobs
