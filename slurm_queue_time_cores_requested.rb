@@ -90,7 +90,7 @@ class SlurmQueueTimeCoresRequested
               queuetime,
               help: "Queue time binned by number of CPU cores requested",
               type: "gauge",
-              labels: {njobs: njobs,
+              labels: {njobs: binned_by_core[bin_idx].length,
                        cores_min: bins_cores[bin_idx][0],
                        cores_max: bins_cores[bin_idx][1],
                        statistic: qt_stats[stat_idx]}
