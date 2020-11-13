@@ -19,7 +19,8 @@ end
 class SlurmQueueTimeCoresRequested
   def initialize(collector, config)
     @collector = collector
-    @interval = config[:raid_every]
+    #@interval = config[:raid_every]
+    @interval = 6000
   end
 
   def raid
@@ -32,7 +33,7 @@ class SlurmQueueTimeCoresRequested
       "-X", # allocations
       "-P", # "|" - delimited 
       "--partition=nodes",
-      "--state=CD,CF,CG,DL,F,NF,OOM,PR,R,ST,TO",  # consider all job states that have had resources allocated since the
+      "--state=CD,DL,F,NF,OOM,PR,R,TO",  # consider all job states that have had resources allocated since the
       "-o AllocCPUs,Submit,Start",                # last cycle
       "-S #{start_time}", 
       "-E #{end_time}"
@@ -45,7 +46,7 @@ class SlurmQueueTimeCoresRequested
     # drop the header line
     data = data[1..-1]
     # number of jobs considered
-    njobs = data.length()
+    njobs = data.length
 
     # don't bother calculating if this is 0
     if njobs > 0
