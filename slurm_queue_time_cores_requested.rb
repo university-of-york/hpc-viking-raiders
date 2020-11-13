@@ -84,16 +84,26 @@ class SlurmQueueTimeCoresRequested
       # report mean, median, max queue time for each CPU core bin
       qt_by_core.each.with_index do |bin, bin_idx|    # iterate over bins
         bin.each.with_index do |queuetime, stat_idx|  # iterate over mean, median, max
-          @collector.report!(
-            "slurm_queue_time_cores_requested",
-            queuetime,
-            help: "Queue time binned by number of CPU cores requested",
-            type: "gauge",
-            labels: {njobs: njobs,
-                     cores_min: bins_cores[bin_idx][0],
-                     cores_max: bins_cores[bin_idx][1],
-                     statistic: qt_stats[stat_idx]}
-          )
+          if queuetime != nil
+            @collector.report!(
+              "slurm_queue_time_cores_requested",
+              queuetime,
+              help: "Queue time binned by number of CPU cores requested",
+              type: "gauge",
+              labels: {njobs: njobs,
+                       cores_min: bins_cores[bin_idx][0],
+                       cores_max: bins_cores[bin_idx][1],
+                       statistic: qt_stats[stat_idx]}
+            )
+          else
+            @collector.redact!(
+              "slurm_queue_time_cores_requested",
+              labels: {njobs: njobs,
+                       cores_min: bins_cores[bin_idx][0],
+                       cores_max: bins_cores[bin_idx][1],
+                       statistic: qt_stats[stat_idx]}
+            )
+          end
         end
       end
 
