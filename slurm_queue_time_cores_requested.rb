@@ -2,17 +2,17 @@ require 'date'
 
 # extend Array to support mean, median
 class Array
-  def mean(array)
-    return nil if array.empty?
-    array = array.sum.fdiv(array.size)
+  def mean
+    return nil if self.empty?
+    return self.sum.fdiv(self.size)
   end
 
-  def median(array)
-    return nil if array.empty?
-    array = array.sort
-    mid = array.size / 2  # midpoint
+  def median
+    return nil if self.empty?
+    self.sort
+    mid = self.size / 2  # midpoint
     # if length is odd, select middle element; otherwise take mean of two middle elements
-    return array.size % 2 == 1 ? array[mid] : mean(array[mid-1..mid])
+    return self.size % 2 == 1 ? self[mid] : self[mid-1..mid].sum.fdiv(2)
   end
 end
 
