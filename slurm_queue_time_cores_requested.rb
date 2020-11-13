@@ -39,7 +39,7 @@ class SlurmQueueTimeCoresRequested
     ].join(' ')
     
     # get raw data from sacct and read jobs into an array
-    data = `#{squeue_cmd}`.lines
+    data = `#{sacct_cmd}`.lines
     # remove any whitespace from the ends of each string
     data.map!(&:strip)
     # drop the header line
