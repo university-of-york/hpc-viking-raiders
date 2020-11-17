@@ -31,96 +31,126 @@ class SlurmQueueTimeCoresRequested
   def initialize(collector, config)
     @collector = collector
     @interval = config[:raid_every]
+    @cpu_bin_upperbounds = [1, 10, 30, 100, 250, 500]
+    @queue_time_stats = %w[mean median max]
+    @gauge_name = 'slurm_queue_time_cores_requested'
   end
 
   def raid
+    # get slurm data
+    data = parse_sacct_data
+    # don't report if no jobs match conditions
+    return unless data.length.positive?
+
+    # determine queue time
+    data = calculate_queue_time(data)
+    # create bins
+    bins_cores = create_bins
+    # bin data
+    binned_by_core, qt_by_core = bin_data(bins_cores, data)
+    # report binned data
+    report_binned_data(bins_cores, binned_by_core, qt_by_core)
+  end
+
+  private
+
+  def raw_sacct_data
     start_time = (Time.now - @interval).strftime('%H:%M:%S')
     end_time = Time.now.strftime('%H:%M:%S')
 
     sacct_cmd = [
       "sacct",
-      "-a", # all jobs
-      "-X", # allocations
-      "-P", # "|" - delimited
+      "--allusers",
+      "--allocations",
+      "--parsable2", # "|" - delimited
+      "--noheader",
       "--partition=nodes",
       "--state=CD", # consider only completed jobs
-      "-o AllocCPUs,Submit,Start",
-      "-S #{start_time}",
-      "-E #{end_time}"
+      "--format=AllocCPUs,Submit,Start",
+      "--starttime=#{start_time}",
+      "--endtime=#{end_time}"
     ].join(' ')
 
-    # get raw data from sacct and read jobs into an array
-    data = `#{sacct_cmd}`.lines
+    # get raw data from sacct
+    `#{sacct_cmd}`
+  end
+
+  def parse_sacct_data
+    # read raw slurm data into array
+    data = raw_sacct_data.lines
+
     # remove any whitespace from the ends of each string
     data.map!(&:strip)
-    # drop the header line
-    data = data[1..-1]
-    # number of jobs considered
-    njobs = data.length
+    # split each line about delimiter
+    data.map { |row| row.split('|') }
+  end
 
-    # don't bother calculating if this is 0
-    if njobs.positive?
-      # split each line by observables
-      data.map! { |row| row.split("|") }
+  def calculate_queue_time(data)
+    # calculate queue time from (start - submit) time
+    data.map do |job|
+      [job[0].to_i,
+       (DateTime.parse(job[2]).to_time - DateTime.parse(job[1]).to_time).to_i]
+    end
+  end
 
-      # calculate queue time from (start - submit) time
-      data.map! do |job|
-        [job[0].to_i,
-         (DateTime.parse(job[2]).to_time - DateTime.parse(job[1]).to_time).to_i]
-      end
+  def create_bins
+    # create bin intervals (AllocCPUs)
+    @cpu_bin_upperbounds.prepend(-1)               # first bin starts at 0
+                        .each_cons(2)              # consecutive values
+                        .map { |l, u| [l + 1, u] } # lower/upper bin limits
+  end
 
-      # create bin intervals (AllocCPUs)
-      bins_cores = [1, 10, 30, 100, 250, 500] # upper bin boundaries
-                   .prepend(-1)               # ensure first bin starts at 0
-                   .each_cons(2)              # consider consecutive pairs
-                   .map { |l, u| [l + 1, u] } # generate bin lower/upper limits
+  def bin_data(bins_cores, data)
+    # bin queue time by core
+    binned_by_core = bins_cores.map do |bin|
+      data
+        .select { |cores, _time| cores.between?(bin[0], bin[1]) }
+        .map { |job| job[1] } # extract queue time
+    end
 
-      # bin queue time by core
-      binned_by_core = bins_cores.map do |bin|
-        # find matching queue times for each bin
-        data
-          .select { |cores, _time| cores.between?(bin[0], bin[1]) }
-          .map { |job| job[1] } # extract queue time
-      end
+    # calculate stats for each bin
+    qt_by_core = binned_by_core.map do |bin|
+      @queue_time_stats.map { |stat| bin.send(stat.to_sym) }
+    end
 
-      qt_stats = %w[mean median max]
-      qt_by_core = binned_by_core.map do |bin|
-        mean_qt = bin.mean
-        median_qt = bin.median
-        max_qt = bin.max
-        [mean_qt, median_qt, max_qt]
-      end
+    [binned_by_core, qt_by_core]
+  end
 
-      @collector.redact!('slurm_queue_time_cores_requested')
+  def redact_data(*labels)
+    if labels
+      @collector.redact!(@gauge_name, labels: labels)
+    else
+      @collector.redact!(@gauge_name)
+    end
+  end
 
-      # report mean, median, max queue time for each CPU core bin
-      qt_by_core.each.with_index do |bin, bin_idx|    # iterate over bins
-        bin.each.with_index do |queuetime, stat_idx|  # iterate over statistics
-          if queuetime.nil?
-            @collector.redact!(
-              'slurm_queue_time_cores_requested',
-              labels: { njobs: njobs,
+  def report_data(queue_time, labels)
+    @collector.report!(
+      @gauge_name,
+      queue_time,
+      help: 'Queue time binned by number of CPU cores requested',
+      type: 'gauge',
+      labels: labels
+    )
+  end
+
+  def report_binned_data(bins_cores, binned_by_core, qt_by_core)
+    # report mean, median, max queue time for each CPU core bin
+    qt_by_core.each.with_index do |bin, bin_idx|    # iterate over bins
+      bin.each.with_index do |queue_time, stat_idx| # iterate over statistics
+        # redact empty bins
+        if queue_time.nil?
+          redact_data({ cores_min: bins_cores[bin_idx][0],
+                        cores_max: bins_cores[bin_idx][1],
+                        statistic: @queue_time_stats[stat_idx] })
+        else
+          report_data(queue_time,
+                      { njobs: binned_by_core[bin_idx].length,
                         cores_min: bins_cores[bin_idx][0],
                         cores_max: bins_cores[bin_idx][1],
-                        statistic: qt_stats[stat_idx] }
-            )
-          else
-            @collector.report!(
-              'slurm_queue_time_cores_requested',
-              queuetime,
-              help: 'Queue time binned by number of CPU cores requested',
-              type: 'gauge',
-              labels: { njobs: binned_by_core[bin_idx].length,
-                        cores_min: bins_cores[bin_idx][0],
-                        cores_max: bins_cores[bin_idx][1],
-                        statistic: qt_stats[stat_idx] }
-            )
-          end
+                        statistic: @queue_time_stats[stat_idx] })
         end
       end
-
-    else
-      @collector.redact!('slurm_queue_time_cores_requested')
     end
   end
 end
