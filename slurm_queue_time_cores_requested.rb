@@ -2,29 +2,6 @@
 
 require 'date'
 
-# extend Array to support mean, median
-class Array
-  def mean
-    return nil if empty?
-
-    sum.fdiv(size)
-  end
-
-  def median
-    return nil if empty?
-
-    sort
-    mid = size / 2 # midpoint
-    # if length is odd, select middle element; otherwise take mean of two
-    # middle elements
-    if size.odd?
-      self[mid]
-    else
-      self[(mid - 1)..mid].sum.fdiv(2)
-    end
-  end
-end
-
 # For various job sizes (by cores requested), report the average and max queue
 # times.
 class SlurmQueueTimeCoresRequested
@@ -53,6 +30,32 @@ class SlurmQueueTimeCoresRequested
   end
 
   private
+
+  # Array mean method
+  def mean
+    error_msg = "expected an Array, but got #{self.class.name}"
+    raise TypeError, error_msg unless is_a?(Array)
+    return nil if empty?
+
+    sum.fdiv(size)
+  end
+
+  # Array median method
+  def median
+    error_msg = "expected an Array, but got #{self.class.name}"
+    raise TypeError, error_msg unless is_a?(Array)
+    return nil if empty?
+
+    sorted = sort
+    mid = size / 2 # midpoint
+    # if length is odd, select middle element; otherwise take mean of two
+    # middle elements
+    if size.odd?
+      sorted[mid]
+    else
+      sorted[(mid - 1)..mid].sum.fdiv(2)
+    end
+  end
 
   def raw_sacct_data
     start_time = (Time.now - @interval).strftime('%H:%M:%S')
