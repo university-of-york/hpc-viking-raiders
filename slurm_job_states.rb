@@ -8,7 +8,7 @@ class SlurmJobStates
     start_time = (Time.now - @interval).strftime("%H:%M:%S")
 
     # Get raw data from sacct and read jobs into an array
-    raw = `sacct -a -P -o State,Partition -S #{start_time}`.lines
+    raw = `/usr/bin/sacct -a -P -o State,Partition -S #{start_time}`.lines
     # remove any whitespace from the ends of each string
     raw = raw.map(&:strip)
     # drop the header line

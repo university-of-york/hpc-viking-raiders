@@ -9,7 +9,7 @@ class SlurmNumberJobs
   end
 
   def raid
-    raw = `squeue --format="%P,%u,%T" --noheader`
+    raw = `/usr/bin/squeue --format="%P,%u,%T" --noheader`
     raw = raw.lines.map(&:strip)
     raw = raw.map { |line| line.split(',') }
 

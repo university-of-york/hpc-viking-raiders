@@ -23,7 +23,7 @@ class SlurmPendingOnQos
   def raid
     @partition_thresholds.each do |partition, threshold|
       squeue_cmd = [
-        'squeue',
+        '/usr/bin/squeue',
         '--format="%R,%V"',
         '--noheader',
         "--partition=#{partition}",
