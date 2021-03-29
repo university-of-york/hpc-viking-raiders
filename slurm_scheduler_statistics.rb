@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'date'
-
 # Report the scheduler and backfill statistics from sdiag
 class SlurmSchedulerStatistics
   def initialize(collector, config)
