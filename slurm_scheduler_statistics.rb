@@ -4,9 +4,10 @@
 class SlurmSchedulerStatistics
   def initialize(collector, config)
     @collector = collector
-    @sdiag_categories = ["General", "Main", "Backfilling"]
-    @sdiag_split_rgx = /Main schedule statistics \(microseconds\):|Backfilling stats/
-    @sdiag_rgx = /^\s*([\w \t()]+):\s+(\d+)/
+    @config = config
+    @sdiag_categories = ['General', 'Main', 'Backfilling']
+    @sdiag_split_regex = /Main [\s\w]+ \(microseconds\):|Backfilling stats/
+    @sdiag_regex = /^\s*([\w \t()]+):\s+(\d+)/
     @stats_filter = [
       # General:
       [],
@@ -15,34 +16,34 @@ class SlurmSchedulerStatistics
         'Last cycle',         # time (us) for last scheduling cycle
         'Mean cycle',         # max time (us) for scheduling cycle since restart
         'Cycles per minute',
-        'Last queue length',
+        'Last queue length'
       ],
       # Backfilling:
       [
-        'Total backfilled jobs (since last stats cycle start)', # since 00:00 UTC
+        'Total backfilled jobs (since last stats cycle start)',
         'Last cycle',
         'Mean cycle',
         'Last depth cycle',             # no. jobs considered for backfilling
-        'Last depth cycle (try sched)', # startable jobs considered 
+        'Last depth cycle (try sched)', # startable jobs considered
         'Depth Mean',
         'Depth Mean (try depth)',
         'Queue length mean',
-        'Last table size',  # no. time slots considered for backfilling
+        'Last table size', # no. of time slots considered for backfilling
         'Mean table size',
-        'Latency for 1000 calls to gettimeofday()',
-      ],
+        'Latency for 1000 calls to gettimeofday()'
+      ]
     ]
   end
 
   def scan_array(array, pattern)
     matches = []
 
-    array.each_with_index do |str,idx|
+    array.each_with_index do |str, index|
       match = str.scan(pattern)
-      matches[idx] = match.to_h
+      matches[index] = match.to_h
     end
     
-    return matches
+    matches
   end
 
   def raid
@@ -52,18 +53,18 @@ class SlurmSchedulerStatistics
 
     stats_by_category = scan_array(sdiag_categorised, @sdiag_rgx)
   
-    stats_by_category.each_with_index do |data,cat|
-      if !@stats_filter[cat].empty?
-        @stats_filter[cat].each do |stat|
+    stats_by_category.each_with_index do |data, category_index|
+      next unless @stats_filter[category_index].empty?
+        @stats_filter[category_index].each do |stat|
           val = data[stat]
-          category = @sdiag_categories[cat].downcase
+          category = @sdiag_categories[category_index].downcase
           description = "Slurm scheduler (#{category}): #{stat}"
           
           @collector.report!(
             description.downcase.gsub(/\s+/, '_').gsub(/[():]/, ''),
             val,
             help: description,
-            type: 'gauge',
+            type: 'gauge'
           )
         end
       end
