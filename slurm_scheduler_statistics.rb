@@ -4,16 +4,13 @@
 class SlurmSchedulerStatistics
   def initialize(collector, config)
     @collector = collector
-    @sdiag_categories = ["General", "Main scheduler", "Backfilling"]
+    @sdiag_categories = ["General", "Main", "Backfilling"]
     @sdiag_split_rgx = /Main schedule statistics \(microseconds\):|Backfilling stats/
     @sdiag_rgx = /^\s*([\w \t()]+):\s+(\d+)/
     @stats_filter = [
       # General:
-      [
-        'Jobs pending',
-        'Jobs running',
-      ],
-      # Main scheduler:
+      [],
+      # Main:
       [
         'Last cycle',         # time (us) for last scheduling cycle
         'Mean cycle',         # max time (us) for scheduling cycle since restart
@@ -50,25 +47,25 @@ class SlurmSchedulerStatistics
 
   def raid
     sdiag = `sdiag`
-    # Split into general/main scheduler/backfilling stats
+    # Split into general/main/backfilling stats
     sdiag_categorised = sdiag.split(@sdiag_split_rgx)
 
     stats_by_category = scan_array(sdiag_categorised, @sdiag_rgx)
   
     stats_by_category.each_with_index do |data,cat|
-      @stats_filter[cat].each do |stat|
-        val = data[stat]
-        @collector.report!(
-          'schduler_statistics',
-          val,
-          help: 'Slurm scheduler statistics',
-          type: 'gauge',
-          labels: {
-            'category': @sdiag_categories[cat],
-            'statistic': stat,
-            'value': val,
-          }
-        )
+      if !@stats_filter[cat].empty?
+        @stats_filter[cat].each do |stat|
+          val = data[stat]
+          category = @sdiag_categories[cat].downcase
+          description = "Slurm scheduler (#{category}): #{stat}"
+          
+          @collector.report!(
+            description.downcase.gsub(/\s+/, '_').gsub(/[():]/, ''),
+            val,
+            help: description,
+            type: 'gauge',
+          )
+        end
       end
     end
   end
