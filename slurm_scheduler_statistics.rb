@@ -5,7 +5,7 @@ class SlurmSchedulerStatistics
   def initialize(collector, config)
     @collector = collector
     @config = config
-    @sdiag_categories = ['General', 'Main', 'Backfilling']
+    @sdiag_categories = %w[General Main Backfilling]
     @sdiag_split_regex = /Main [\s\w]+ \(microseconds\):|Backfilling stats/
     @sdiag_regex = /^\s*([\w \t()]+):\s+(\d+)/
     @stats_filter = [
@@ -42,7 +42,7 @@ class SlurmSchedulerStatistics
       match = str.scan(pattern)
       matches[index] = match.to_h
     end
-    
+
     matches
   end
 
@@ -52,21 +52,21 @@ class SlurmSchedulerStatistics
     sdiag_categorised = sdiag.split(@sdiag_split_rgx)
 
     stats_by_category = scan_array(sdiag_categorised, @sdiag_rgx)
-  
+
     stats_by_category.each_with_index do |data, category_index|
       next unless @stats_filter[category_index].empty?
-        @stats_filter[category_index].each do |stat|
-          val = data[stat]
-          category = @sdiag_categories[category_index].downcase
-          description = "Slurm scheduler (#{category}): #{stat}"
-          
-          @collector.report!(
-            description.downcase.gsub(/\s+/, '_').gsub(/[():]/, ''),
-            val,
-            help: description,
-            type: 'gauge'
-          )
-        end
+
+      @stats_filter[category_index].each do |stat|
+        val = data[stat]
+        category = @sdiag_categories[category_index].downcase
+        description = "Slurm scheduler (#{category}): #{stat}"
+
+        @collector.report!(
+          description.downcase.gsub(/\s+/, '_').gsub(/[():]/, ''),
+          val,
+          help: description,
+          type: 'gauge'
+        )
       end
     end
   end
