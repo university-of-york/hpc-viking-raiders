@@ -5,8 +5,6 @@ class SlurmSchedulerStatistics
   def initialize(collector, config)
     @collector = collector
     @config = config
-    @sdiag_categories = %w[General Main Backfilling RPC]
-
     # Regex to split sdiag output into General/Main scheduler/Backfilling/RPC
     @sdiag_split_regex = /^Main\sschedule\sstatistics\s\(microseconds\):|
                           ^Backfilling\sstats|
@@ -81,7 +79,7 @@ class SlurmSchedulerStatistics
 
     sdiag_split = sdiag.split(@sdiag_split_regex)
 
-    sdiag_hash = array_to_categorised_hash(@sdiag_categories, sdiag_split)
+    sdiag_hash = array_to_categorised_hash(@stats_to_report.keys, sdiag_split)
 
     stats = parse_hash(sdiag_hash, @sdiag_parse_regex)
 
