@@ -36,11 +36,6 @@ class SlurmSchedulerStatistics
     }
   end
 
-  def array_to_categorised_hash(categories, data)
-    zipped_array = categories.zip(data)
-    zipped_array.to_h
-  end
-
   def parse_hash(sdiag_hash, pattern)
     sdiag_hash.each do |category, raw_string|
       matches = raw_string.scan(pattern).to_h
@@ -77,9 +72,7 @@ class SlurmSchedulerStatistics
   def raid
     sdiag = `sdiag`
 
-    sdiag_split = sdiag.split(@sdiag_split_regex)
-
-    sdiag_hash = array_to_categorised_hash(@stats_to_report.keys, sdiag_split)
+    sdiag_hash = @stats_to_report.keys.zip(sdiag.split(@sdiag_split_regex)).to_h
 
     stats = parse_hash(sdiag_hash, @sdiag_parse_regex)
 
