@@ -5,21 +5,23 @@ class SlurmSchedulerStatistics
   def initialize(collector, config)
     @collector = collector
     @config = config
-    @sdiag_categories = %w[General Main Backfilling]
-    @sdiag_split_regex = /Main [\s\w]+ \(microseconds\):|Backfilling stats/
-    @sdiag_regex = /^\s*([\w \t()]+):\s+(\d+)/
-    @stats_filter = [
-      # General:
-      [],
-      # Main:
-      [
+    @sdiag_categories = %w[General Main Backfilling RPC]
+    
+    # Regex to split sdiag output into General/Main scheduler/Backfilling/RPC
+    @sdiag_split_regex = /^Main schedule statistics \(microseconds\):|
+                          ^Backfilling stats|
+                          ^Remote Procedure Call statistics by message type/x
+    @sdiag_parse_regex = /^\s*([\w \t()]+):\s+(\d+)/
+    
+    @stats_to_report = {
+      'General' => [],
+      'Main' => [
         'Last cycle',         # time (us) for last scheduling cycle
         'Mean cycle',         # max time (us) for scheduling cycle since restart
         'Cycles per minute',
         'Last queue length'
       ],
-      # Backfilling:
-      [
+      'Backfilling' => [
         'Total backfilled jobs (since last stats cycle start)',
         'Last cycle',
         'Mean cycle',
@@ -31,41 +33,58 @@ class SlurmSchedulerStatistics
         'Last table size', # no. of time slots considered for backfilling
         'Mean table size',
         'Latency for 1000 calls to gettimeofday()'
-      ]
-    ]
+      ],
+      'RPC' => []
+    }
   end
 
-  def scan_array(array, pattern)
-    matches = []
+  def array_to_categorised_hash(categories, data)
+    zipped_array = categories.zip(data)
+    categorised_hash = zipped_array.to_h
+  end
 
-    array.each_with_index do |str, index|
-      match = str.scan(pattern)
-      matches[index] = match.to_h
+  def parse_hash(sdiag_hash, pattern)
+    sdiag_hash.each do |category, raw_string|
+      matches = raw_string.scan(pattern).to_h
+      sdiag_hash[category] = matches
     end
 
-    matches
+    hash
+  end
+
+  def filter_stats(stats, filter_hash)
+    stats.each do |category, category_stats|
+      # iterate over categories
+      filter = filter_hash[category]
+      # keep only statistics listed in the filter
+      category_stats.keep_if { |stat, _| filter.include? stat }
+    end
   end
 
   def raid
     sdiag = `sdiag`
-    # Split into general/main/backfilling stats
-    sdiag_categorised = sdiag.split(@sdiag_split_rgx)
+    
+    sdiag_split = sdiag.split(@sdiag_split_regex)
 
-    stats_by_category = scan_array(sdiag_categorised, @sdiag_rgx)
+    sdiag_hash = array_to_categorised_hash(@sdiag_categories, sdiag_split)
+    
+    stats = parse_hash(sdiag_hash)
 
-    stats_by_category.each_with_index do |data, category_index|
-      next unless @stats_filter[category_index].empty?
+    stats = filter_stats(stats, stats_to_report) 
 
-      @stats_filter[category_index].each do |stat|
-        val = data[stat]
-        category = @sdiag_categories[category_index].downcase
-        description = "Slurm scheduler (#{category}): #{stat}"
+    stats.each do |category, category_stats|
+      next unless category_stats.empty?
 
+      category_lower = category.downcase
+      category_stats.each do |stat, val|
+        help = "Slurm scheduler (#{category}): #{stat}"
+        description = help.downcase.gsub(/\s+/, '_').gsub(/[():]/, '')
+        
         @collector.report!(
-          description.downcase.gsub(/\s+/, '_').gsub(/[():]/, ''),
+          description,
           val,
-          help: description,
-          type: 'gauge'
+          help: help,
+          type: gauge
         )
       end
     end
